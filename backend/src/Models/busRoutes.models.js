@@ -22,8 +22,7 @@ const busRouteSchema = new Schema(
         required: true,
       },
     ],
-    totalDistance: {
-      type: Number,
+    totalDistance: { 
       required: false,
       default: null,
     },
