@@ -79,3 +79,7 @@ const busSignalling = new Schema(
   },
   { timestamps: true }
 );
+
+const BusSignalling = mongoose.model("BusSignalling", busSignalling);
+
+export { BusSignalling };
