@@ -1,4 +1,4 @@
-import mongoose, { Types } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 const busSignalling = new Schema(
   {
@@ -12,7 +12,7 @@ const busSignalling = new Schema(
     currentStatus: {
       type: String,
       enum: ["green", "red", "waiting"],
-      default: "green",
+      default: "red",
       required: true,
     },
     redSignalDuration: {
