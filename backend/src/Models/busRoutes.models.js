@@ -17,12 +17,23 @@ const busRouteSchema = new Schema(
     ],
     stops: [
       {
-        type: String,
-        lowercase: true,
-        required: true,
+        name: {
+          type: String,
+          required: true,
+          lowercase: true,
+        },
+        latitude: {
+          type: Number,
+          required: true,
+        },
+        longitude: {
+          type: Number,
+          required: true,
+        },
       },
     ],
-    totalDistance: { 
+    totalDistance: {
+      type: Number,
       required: false,
       default: null,
     },

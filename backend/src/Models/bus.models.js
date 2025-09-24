@@ -1,8 +1,9 @@
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
 
 const busSchema = new Schema({
   busRouteId: {
-    type: String,
+    type: Types.ObjectId,
+    ref: "BusRoute",
     required: true,
     trim: true,
     lowercase: true,
@@ -16,7 +17,7 @@ const busSchema = new Schema({
     unique: true,
     required: true,
     trim: true,
-    lowercase: true,
+    uppercase: true,
   },
   status: {
     type: String,
