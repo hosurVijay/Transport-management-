@@ -30,7 +30,7 @@ const busSignalling = new Schema(
     },
     controlRoomOverride: {
       type: String,
-      enum: ["move", "stop", null],
+      enum: ["move", "stop", "wait"],
       default: null,
     },
     lastSignalChangeTime: {
