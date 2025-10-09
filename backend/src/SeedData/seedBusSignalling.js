@@ -11,30 +11,56 @@ dotenv.config({ path: path.resolve("../../.env") });
 const seedingBusSignalling = async () => {
   try {
     await connectDB();
-    await BusSignalling.deleteMany();
+
+    // Delete all existing bus signalling records
+    const deletedCount = await BusSignalling.deleteMany();
+    console.log(
+      `Deleted ${deletedCount.deletedCount} existing bus signalling records`
+    );
 
     const getAllBuses = await Bus.find();
 
-    if (!getAllBuses) {
-      throw new ApiError(400, "NO buses to be fetched.");
+    if (getAllBuses.length === 0) {
+      throw new ApiError(400, "No buses found to create signalling for.");
     }
 
-    for (let bus of getAllBuses) {
-      const existedBusSignal = await BusSignalling.findOne({ busId: bus._id });
-      if (!existedBusSignal) {
-        await BusSignalling.create({
+    console.log(`Found ${getAllBuses.length} buses to create signalling for`);
+
+    // Create bus signalling records for all buses
+    const signallingPromises = getAllBuses.map(async (bus) => {
+      try {
+        const newSignalling = await BusSignalling.create({
           busId: bus._id,
           routeId: bus.busRouteId,
         });
         console.log(
-          `The bus signalling is created for the bus number ${bus.busNumber}`
+          `Bus signalling created for bus number: ${bus.busNumber} (ID: ${bus._id})`
         );
+        return newSignalling;
+      } catch (error) {
+        console.error(
+          `Failed to create signalling for bus ${bus.busNumber}:`,
+          error.message
+        );
+        return null;
       }
+    });
+
+    const results = await Promise.allSettled(signallingPromises);
+    const successful = results.filter(
+      (result) => result.status === "fulfilled" && result.value
+    ).length;
+    const failed = results.length - successful;
+
+    console.log(`\nBus signalling seeding completed!`);
+    console.log(`Successfully created: ${successful} records`);
+    if (failed > 0) {
+      console.log(`Failed to create: ${failed} records`);
     }
-    console.log("Bus signalling seeding done sucessFully");
+
     process.exit(0);
   } catch (error) {
-    console.log("Bus signalling seeding failed", error);
+    console.error("Bus signalling seeding failed:", error.message);
     process.exit(1);
   }
 };

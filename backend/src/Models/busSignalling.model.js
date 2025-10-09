@@ -18,7 +18,7 @@ const busSignalling = new Schema(
     redSignalDuration: {
       type: Number,
       required: true,
-      default: 300000,
+      default: 20000, // Changed from 300000 (5 min) to 20000 (20 seconds) for prototype
     },
     readyToMovePressed: {
       type: Boolean,
@@ -30,7 +30,7 @@ const busSignalling = new Schema(
     },
     controlRoomOverride: {
       type: String,
-      enum: ["move", "stop", "wait"],
+      enum: ["move", "stop", "wait", null],
       default: null,
     },
     lastSignalChangeTime: {
@@ -39,7 +39,7 @@ const busSignalling = new Schema(
     },
     autoGreenTimeOut: {
       type: Number,
-      default: 900000,
+      default: 20000, // Changed from 900000 (15 min) to 20000 (20 seconds) for prototype
     },
     conflictingBusId: {
       type: Types.ObjectId,
