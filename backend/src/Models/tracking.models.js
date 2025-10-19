@@ -1,6 +1,6 @@
-import mongoose, { Schema, Types } from "mongoose";
+import mongoose, { model, Schema, Types } from "mongoose";
 
-const trackingBus = new Schema(
+const trackingBusSchema = new Schema(
   {
     busID: {
       type: Types.ObjectId,
@@ -19,3 +19,7 @@ const trackingBus = new Schema(
   },
   { timestamps: true }
 );
+
+const TrackingBus = mongoose.model("TrackingBus", trackingBusSchema);
+
+export { TrackingBus };
