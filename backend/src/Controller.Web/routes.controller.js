@@ -54,7 +54,7 @@ const getBusRouteProgress = asyncHandler(async (req, res) => {
     );
     if (dist < closestDist) {
       closestDist = dist;
-      closestStop = { ...stop, index, dist };
+      closestStop = { ...stop, index };
     }
   });
 
