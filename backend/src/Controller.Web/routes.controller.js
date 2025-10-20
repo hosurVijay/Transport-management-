@@ -73,18 +73,25 @@ const getBusRouteProgress = asyncHandler(async (req, res) => {
         : route.stops[0].name;
   }
 
-  res.status(200).json(
-    new ApiResponse(200, "Bus route Fetched successfully", {
-      data: {
-        routeName: route.routeName,
-        currStop: route.currentStop,
-        nextStop: route.nextStop,
-        distanceToNextStop: Math.round(closestDist),
-        totalStops: route.stops.length,
-        allStops: route.stops.map((s) => s.name),
-      },
-    })
-  );
+  const liveData = {
+    routeName: route.routeName,
+    currStop: route.currentStop,
+    nextStop: route.nextStop,
+    distanceToNextStop: Math.round(closestDist),
+    totalStops: route.stops.length,
+    allStops: route.stops.map((s) => s.name),
+  };
+
+  const io = req.app.get("io");
+  if (io) {
+    io.to(busId).emit("busRouteUpdate", liveData);
+  }
+
+  res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Live update sent successfully", { data: liveData })
+    );
 });
 
 export { getBusRouteProgress };
