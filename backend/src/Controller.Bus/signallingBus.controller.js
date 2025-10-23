@@ -3,9 +3,12 @@ import { BusSignalling } from "../Models/busSignalling.model.js";
 import { asyncHandler } from "../utills/asyncHandler.js";
 import { ApiError } from "../utills/apiError.js";
 import { ApiResponse } from "../utills/apiResponse.js";
+import { TrackingBus } from "../Models/tracking.models.js";
+import { BusRoute } from "../Models/busRoutes.models.js";
+import { calculateDistance } from "../utills/calculateDistance.js";
 
 const busController = asyncHandler(async (req, res) => {
-  let busId, action;
+  let busId, action, latitude, longitude;
 
   if (req.method === "GET") {
     busId = req.params.busId;
@@ -13,6 +16,8 @@ const busController = asyncHandler(async (req, res) => {
   } else if (req.method === "POST") {
     busId = req.body.busId;
     action = req.body.action;
+    latitude = req.body.latitude;
+    longitude = req.body.longitude;
   } else {
     throw new ApiError(405, "Method not allowed. Use GET or POST only.");
   }
@@ -28,6 +33,88 @@ const busController = asyncHandler(async (req, res) => {
 
   const currentTime = new Date().getTime(); // Use UTC timestamp
   const timeout = bus.autoGreenTimeOut || 20000; // fallback to 20s
+
+  if (latitude && longitude) {
+    await TrackingBus.findOneAndUpdate(
+      { busID: busId },
+      { latitude: latitude, longitude: longitude },
+      { new: true, upsert: true }
+    );
+  }
+
+  const route = await BusRoute.findOne({ buses: busId }).populate("buses");
+
+  if (route) {
+    const allBusesOnRoute = await TrackingBus.find({
+      busID: { $in: route.buses.map((bus) => bus._id) },
+    });
+
+    const processed = new Set();
+    const clusters = [];
+
+    for (const currentBus of allBusesOnRoute) {
+      if (processed.has(currentBus.busID.toString())) continue;
+
+      let nearestBus = null;
+      let nearestDistance = Infinity;
+
+      for (const otherBus of allBusesOnRoute) {
+        if (currentBus.busID.toString() === otherBus.busID.toString()) continue;
+        if (processed.has(otherBus.busID.toString())) continue;
+
+        const distance = calculateDistance(
+          currentBus.latitude,
+          currentBus.longitude,
+          otherBus.latitude,
+          otherBus.longitude
+        );
+
+        if (distance < 1 && distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestBus = otherBus;
+        }
+      }
+
+      if (nearestBus) {
+        clusters.push([
+          { bus: currentBus, distance: 0 },
+          { bus: nearestBus, distance: nearestDistance },
+        ]);
+
+        processed.add(currentBus.busID.toString());
+        processed.add(nearestBus.busID.toString());
+      }
+    }
+
+    for (const cluster of clusters) {
+      cluster.sort((a, b) => a.distance - b.distance);
+
+      const leader = cluster[0];
+      const followers = cluster.slice(1);
+
+      await BusSignalling.findOneAndUpdate(
+        { busId: leader.bus.busID },
+        {
+          currentStatus: "green",
+          controlRoomOverride: "move",
+          reasonForRedSignal: null,
+          lastSignalChangeTime: new Date(),
+        }
+      );
+
+      for (const follower of followers) {
+        await BusSignalling.findOneAndUpdate(
+          { busId: follower.bus.busID },
+          {
+            currentStatus: "red",
+            controlRoomOverride: "Stop",
+            reasonForRedSignal: "busBunching",
+            lastSignalChangeTime: new Date(),
+          }
+        );
+      }
+    }
+  }
 
   // --- AUTO GREEN LOGIC ---
   let shouldAutoGreen = false;
@@ -68,7 +155,7 @@ const busController = asyncHandler(async (req, res) => {
   // Apply auto-green if conditions are met
   if (shouldAutoGreen) {
     console.log(
-      `🟢 AUTO-GREEN TRIGGERED! Bus ${busId} turning green after ${timeout}ms`
+      `AUTO-GREEN TRIGGERED! Bus ${busId} turning green after ${timeout}ms`
     );
     bus.currentStatus = "green";
     bus.readyToMovePressed = false;
