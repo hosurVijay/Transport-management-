@@ -5,27 +5,9 @@ import { ApiResponse } from "../utills/apiResponse.js";
 import { TrackingBus } from "../Models/tracking.models.js";
 import { Bus } from "../Models/bus.models.js";
 import { BusRoute } from "../Models/busRoutes.models.js";
+import { calculateDistance } from "../utills/calculateDistance.js";
 
-const calculateDistance = (lat1, long1, lat2, long2) => {
-  const toRadians = (deg) => (deg * Math.PI) / 180;
-  const earthRadius = 6371000;
-  const diffLat = toRadians(lat2 - lat1);
-  const diffLong = toRadians(long2 - long1);
-
-  const intermediateValue =
-    Math.sin(diffLat / 2) ** 2 +
-    Math.cos(toRadians(lat1)) *
-      Math.cos(toRadians(lat2)) *
-      Math.sin(diffLong / 2) ** 2;
-
-  const centralAngel =
-    2 *
-    Math.atan2(Math.sqrt(intermediateValue), Math.sqrt(1 - intermediateValue));
-
-  return earthRadius * centralAngel;
-};
-
-const getBusRouteProgress = asyncHandler(async (req, res) => {
+const getBusRouteProgres = asyncHandler(async (req, res) => {
   const { busId } = req.params;
 
   if (!busId) {
@@ -94,4 +76,4 @@ const getBusRouteProgress = asyncHandler(async (req, res) => {
     );
 });
 
-export { getBusRouteProgress };
+export { getBusRouteProgres, calculateDistance };
