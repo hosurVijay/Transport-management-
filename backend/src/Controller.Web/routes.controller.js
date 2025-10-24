@@ -57,8 +57,8 @@ const getBusRouteProgres = asyncHandler(async (req, res) => {
 
   const liveData = {
     routeName: route.routeName,
-    currStop: route.currentStop,
-    nextStop: route.nextStop,
+    currStop: currStop,
+    nextStop: nextStop,
     distanceToNextStop: Math.round(closestDist),
     totalStops: route.stops.length,
     allStops: route.stops.map((s) => s.name),
@@ -76,4 +76,4 @@ const getBusRouteProgres = asyncHandler(async (req, res) => {
     );
 });
 
-export { getBusRouteProgres, calculateDistance };
+export { getBusRouteProgres };
