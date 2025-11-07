@@ -3,6 +3,6 @@ import { getLiveLocationOfBus } from "../Controller.Web/trackingBus.controller.j
 
 const router = Router();
 
-router.route("/bus-tracking", getLiveLocationOfBus);
+router.route("/bus-tracking/:busId").get(getLiveLocationOfBus);
 
 export default router;

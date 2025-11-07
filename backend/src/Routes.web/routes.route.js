@@ -3,6 +3,6 @@ import { getBusRouteProgres } from "../Controller.Web/routes.controller.js";
 
 const router = Router();
 
-router.route("/getProgress").get(getBusRouteProgres);
+router.route("/getProgress/:busId").get(getBusRouteProgres);
 
 export default router;
