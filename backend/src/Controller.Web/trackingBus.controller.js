@@ -8,7 +8,7 @@ const getLiveLocationOfBus = asyncHandler(async (req, res) => {
 
   if (!busId) throw new ApiError(400, "Bus ID is required");
 
-  const tracking = await TrackingBus.findOne({ busID: busId }); // 🧠 notice `busID`
+  const tracking = await TrackingBus.findOne({ busID: busId });
 
   if (!tracking) throw new ApiError(404, "No tracking data found for this bus");
 
@@ -24,14 +24,16 @@ const getLiveLocationOfBus = asyncHandler(async (req, res) => {
     });
   }
 
-  res.status(200).json(
-    new ApiResponse(200, "Bus live location fetched successfully", {
-      busId,
-      latitude,
-      longitude,
-      updatedAt,
-    })
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, "Bus live location fetched successfully", {
+        busId,
+        latitude,
+        longitude,
+        updatedAt,
+      })
+    );
 });
 
 export { getLiveLocationOfBus };
