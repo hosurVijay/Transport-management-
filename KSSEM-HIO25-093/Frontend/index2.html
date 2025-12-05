@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Bus Tracking — Clean Dashboard</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    />
+
+    <!-- Socket.IO client -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card: #fff;
+        --accent: #3b82f6;
+        --muted: #6b7280;
+        --green: #10b981;
+        --red: #ef4444;
+        --yellow: #f59e0b;
+        --radius: 12px;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: Inter, system-ui;
+        background: var(--bg);
+        padding: 20px;
+        color: #0f172a;
+      }
+      .container {
+        max-width: 1200px;
+        margin: auto;
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--card);
+        padding: 14px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+        margin-bottom: 18px;
+      }
+      .logo {
+        width: 44px;
+        height: 44px;
+        background: linear-gradient(90deg, var(--accent), #7c3aed);
+        color: white;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+      }
+      .controls input {
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        width: 280px;
+      }
+      .controls button {
+        padding: 10px 14px;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--accent);
+        color: white;
+      }
+      .controls .ghost {
+        background: #e6eef8;
+        color: var(--accent);
+      }
+
+      .main {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--card);
+        padding: 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+
+      #map {
+        height: 650px;
+        border-radius: 12px;
+      }
+
+      .dot {
+        width: 70px;
+        height: 70px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        color: white;
+        font-weight: bold;
+        font-size: 22px;
+      }
+
+      .dot.green {
+        background: var(--green);
+      }
+      .dot.red {
+        background: var(--red);
+      }
+      .dot.waiting {
+        background: var(--yellow);
+      }
+      .dot.unknown {
+        background: #9ca3af;
+      }
+
+      .infoRow {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px dashed #ddd;
+      }
+
+      .msg.success {
+        padding: 10px;
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 6px;
+      }
+      .msg.error {
+        padding: 10px;
+        background: #fee2e2;
+        color: #7f1d1d;
+        border-radius: 6px;
+      }
+
+      .stopItem {
+        padding: 10px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <div style="display: flex; gap: 12px">
+          <div class="logo">🚌</div>
+          <div>
+            <h2>Bus Tracking Dashboard</h2>
+            <small style="color: var(--muted)">Live Tracking</small>
+          </div>
+        </div>
+
+        <div class="controls">
+          <input id="busIdInput" placeholder="Enter Bus ID" />
+          <button id="trackBtn">Track</button>
+          <button id="stopBtn" class="ghost" style="display: none">Stop</button>
+        </div>
+      </div>
+
+      <!-- Main Body -->
+      <div class="main">
+        <!-- Map -->
+        <div class="card">
+          <div id="map"></div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="info">
+          <div class="card">
+            <div style="display: flex; gap: 15px; align-items: center">
+              <div id="statusDot" class="dot unknown">?</div>
+              <div>
+                <div id="statusText" style="font-weight: bold">
+                  No bus selected
+                </div>
+                <div
+                  id="statusSub"
+                  style="color: var(--muted); font-size: 13px"
+                >
+                  Enter an ID and press Track
+                </div>
+              </div>
+            </div>
+
+            <div class="infoRow">
+              <div>Last Update</div>
+              <div id="lastUpdate">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Reason</div>
+              <div id="reasonVal">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Distance to Next</div>
+              <div id="distNext">-</div>
+            </div>
+
+            <div style="margin-top: 10px; display: flex; gap: 10px">
+              <button id="greenBtn" class="btn green" disabled>🟢 GREEN</button>
+              <button id="redBtn" class="btn red" disabled>🔴 RED</button>
+            </div>
+
+            <div id="messages" style="margin-top: 10px"></div>
+          </div>
+
+          <div class="card">
+            <h3>Bus Info</h3>
+            <div class="infoRow">
+              <div>Bus ID</div>
+              <div id="busIdLabel">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Latitude</div>
+              <div id="latVal">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Longitude</div>
+              <div id="lngVal">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Status</div>
+              <div id="statusVal">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Current Stop</div>
+              <div id="currStopVal">-</div>
+            </div>
+            <div class="infoRow">
+              <div>Next Stop</div>
+              <div id="nextStopVal">-</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Route & Stops</h3>
+            <div
+              id="routeName"
+              style="color: var(--muted); margin-bottom: 10px"
+            >
+              -
+            </div>
+            <div id="stopsList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaflet -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <!-- FULL JAVASCRIPT LOGIC -->
+    <script>
+      const API_BASE = "http://127.0.0.1:3000/api/v1";
+      const SOCKET_URL = "http://127.0.0.1:3000";
+
+      /* DOM refs */
+      const busIdInput = document.getElementById("busIdInput");
+      const trackBtn = document.getElementById("trackBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const greenBtn = document.getElementById("greenBtn");
+      const redBtn = document.getElementById("redBtn");
+
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const statusSub = document.getElementById("statusSub");
+      const lastUpdate = document.getElementById("lastUpdate");
+      const reasonVal = document.getElementById("reasonVal");
+      const distNext = document.getElementById("distNext");
+
+      const busIdLabel = document.getElementById("busIdLabel");
+      const latVal = document.getElementById("latVal");
+      const lngVal = document.getElementById("lngVal");
+      const statusVal = document.getElementById("statusVal");
+      const currStopVal = document.getElementById("currStopVal");
+      const nextStopVal = document.getElementById("nextStopVal");
+      const routeName = document.getElementById("routeName");
+      const stopsList = document.getElementById("stopsList");
+
+      let activeBusId = null;
+      let socket = null;
+      let map, marker;
+
+      /* Init map */
+      function initMap() {
+        map = L.map("map").setView([12.97, 77.59], 14);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(
+          map
+        );
+
+        marker = L.marker([0, 0]).addTo(map);
+        marker.setOpacity(0);
+      }
+
+      /* URL Auto Fill */
+      (function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get("busId");
+        if (id) {
+          busIdInput.value = id;
+          setTimeout(() => startTracking(), 300);
+        }
+      })();
+
+      /* Fetch helpers */
+      async function getStatus(id) {
+        const res = await fetch(`${API_BASE}/busManual/get-status/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const json = await res.json();
+        return json.data;
+      }
+
+      async function getLocation(id) {
+        const res = await fetch(`${API_BASE}/busLocation/bus-tracking/${id}`);
+        const json = await res.json();
+        return json.data;
+      }
+
+      async function getRoute(id) {
+        const res = await fetch(`${API_BASE}/busProgress/getProgress/${id}`);
+        const json = await res.json();
+        return json.data;
+      }
+
+      /* Update map */
+      function updateMap(lat, lng) {
+        if (!lat || !lng) return;
+        marker.setLatLng([lat, lng]);
+        marker.setOpacity(1);
+        map.setView([lat, lng], 15);
+        latVal.textContent = lat.toFixed(6);
+        lngVal.textContent = lng.toFixed(6);
+      }
+
+      /* UI update */
+      function updateStatusUI(data) {
+        const status = (data.currentStatus || "").toLowerCase();
+
+        statusDot.className = "dot " + (status || "unknown");
+        statusDot.textContent =
+          status === "green"
+            ? "G"
+            : status === "red"
+            ? "R"
+            : status === "waiting"
+            ? "W"
+            : "?";
+
+        statusText.textContent =
+          status === "green"
+            ? "Moving"
+            : status === "red"
+            ? "Stopped"
+            : status === "waiting"
+            ? "Waiting"
+            : "Unknown";
+
+        statusVal.textContent = status.toUpperCase();
+        reasonVal.textContent = data.reasonForRedSignal || "-";
+        lastUpdate.textContent = new Date(
+          data.lastSignalChangeTime || Date.now()
+        ).toLocaleTimeString();
+      }
+
+      /* Route UI */
+      function renderRoute(data) {
+        routeName.textContent = data.routeName || "-";
+        currStopVal.textContent = data.currStop || "-";
+        nextStopVal.textContent = data.nextStop || "-";
+        distNext.textContent = data.distanceToNextStop
+          ? `${data.distanceToNextStop}m`
+          : "-";
+
+        stopsList.innerHTML = "";
+
+        const stops = data.stops || [];
+
+        stops.forEach((s, i) => {
+          const div = document.createElement("div");
+          div.className = "stopItem";
+          div.innerHTML = `<strong>${i + 1}. ${s.name}</strong>`;
+          stopsList.appendChild(div);
+        });
+      }
+
+      /* Socket setup */
+      function startSocket(id) {
+        if (socket) socket.disconnect();
+
+        socket = io(SOCKET_URL);
+
+        socket.on("connect", () => {
+          socket.emit("joinBusRoom", id);
+        });
+
+        socket.on("busLocationUpdated", (d) => {
+          if (d.busId !== id) return;
+          updateMap(d.latitude, d.longitude);
+        });
+
+        socket.on("busSignalChange", (d) => {
+          if (d.busId !== id) return;
+          updateStatusUI(d);
+        });
+
+        socket.on("busRouteUpdate", (d) => {
+          if (d.busId !== id) return;
+          renderRoute(d);
+        });
+      }
+
+      /* Track bus */
+      async function startTracking() {
+        const id = busIdInput.value.trim();
+        if (!id) return alert("Enter Bus ID");
+
+        activeBusId = id;
+        busIdLabel.textContent = id;
+        stopBtn.style.display = "inline-block";
+
+        const [status, location, route] = await Promise.all([
+          getStatus(id),
+          getLocation(id),
+          getRoute(id),
+        ]);
+
+        updateStatusUI(status);
+        updateMap(location.latitude, location.longitude);
+        renderRoute(route);
+
+        greenBtn.disabled = false;
+        redBtn.disabled = false;
+
+        startSocket(id);
+      }
+
+      /* Manual signals */
+      async function sendSignal(mode) {
+        await fetch(`${API_BASE}/busManual/manual-${mode}/${activeBusId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: mode }),
+        });
+      }
+
+      /* Button actions */
+      trackBtn.onclick = startTracking;
+      greenBtn.onclick = () => sendSignal("green");
+      redBtn.onclick = () => sendSignal("red");
+
+      stopBtn.onclick = () => {
+        socket.disconnect();
+        location.href = "index1.html";
+      };
+
+      /* Init */
+      initMap();
+    </script>
+  </body>
+</html>

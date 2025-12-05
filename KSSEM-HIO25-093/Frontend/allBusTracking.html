@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Live Bus Tracking — Dashboard</title>
+
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+    />
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: "Inter", sans-serif;
+        background: #f1f5f9;
+      }
+
+      header {
+        background: white;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        color: #1e293b;
+      }
+
+      #map {
+        width: 100%;
+        height: 92vh;
+      }
+
+      .custom-bus-marker {
+        font-family: "Inter", sans-serif !important;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>🛰 Live Bus Tracking — All Buses</h1>
+    </header>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+
+    <script>
+      const API_URL = "http://127.0.0.1:3000/api/v1/allBusTracking/live"; // YOUR LIVE API
+      let map;
+      let markers = {};
+
+      // ---------------------------------------
+      // Initialize Map
+      // ---------------------------------------
+      function initMap() {
+        map = L.map("map").setView([12.9716, 77.5946], 12);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+        }).addTo(map);
+      }
+
+      // ---------------------------------------
+      // Build professional bus marker
+      // ---------------------------------------
+      function createBusMarker(bus) {
+        const status = bus.currentStatus;
+        let color = "#64748b"; // default gray
+
+        if (status === "green") color = "#10b981"; // moving
+        if (status === "red") color = "#ef4444"; // stopped
+        if (status === "waiting") color = "#f59e0b"; // waiting
+
+        return L.divIcon({
+          className: "custom-bus-marker",
+          html: `
+        <div style="
+          background: #ffffff;
+          padding: 6px 14px;
+          border-radius: 14px;
+          font-size: 14px;
+          font-weight: 600;
+          color: #1e293b;
+          border: 2px solid ${color};
+          box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          🚌 ${bus.busNumber}
+        </div>
+      `,
+          iconSize: [110, 40],
+          iconAnchor: [55, 20],
+        });
+      }
+
+      // ---------------------------------------
+      // Load all buses onto map
+      // ---------------------------------------
+      async function loadAllBuses() {
+        try {
+          const res = await fetch(API_URL);
+          const json = await res.json();
+
+          if (!json.message || !Array.isArray(json.message)) {
+            console.error("Invalid API response:", json);
+            return;
+          }
+
+          json.message.forEach((bus) => {
+            if (bus.latitude === null || bus.longitude === null) return;
+
+            const lat = parseFloat(bus.latitude);
+            const lng = parseFloat(bus.longitude);
+
+            if (isNaN(lat) || isNaN(lng)) return;
+
+            // If marker exists, update only position & icon
+            if (markers[bus.busId]) {
+              markers[bus.busId].setLatLng([lat, lng]);
+              markers[bus.busId].setIcon(createBusMarker(bus));
+            } else {
+              // Create marker
+              markers[bus.busId] = L.marker([lat, lng], {
+                icon: createBusMarker(bus),
+              })
+                .addTo(map)
+                .bindPopup(
+                  `<b>${bus.busNumber}</b><br>
+               Route: ${bus.routeName}<br>
+               Status: ${bus.currentStatus}<br>
+               Last Updated: ${new Date(bus.lastUpdated).toLocaleString()}`
+                );
+            }
+          });
+        } catch (err) {
+          console.error("Error loading buses:", err);
+        }
+      }
+
+      // ---------------------------------------
+      // Auto Refresh Every 5 Seconds
+      // ---------------------------------------
+      setInterval(loadAllBuses, 5000);
+
+      // Start Everything
+      initMap();
+      loadAllBuses();
+    </script>
+  </body>
+</html>

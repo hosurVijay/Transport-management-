@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Tracking System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .bus-icon {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .track-btn {
+            padding: 15px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .track-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .track-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 15px;
+            border-radius: 8px;
+            color: #c33;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #efe;
+            border-left: 4px solid #4f4;
+            padding: 15px;
+            border-radius: 8px;
+            color: #2a2;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .map-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+
+        .info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .info-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .info-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .status-green {
+            background: #22c55e;
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+        }
+
+        .status-red {
+            background: #ef4444;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+        }
+
+        .status-yellow, .status-waiting {
+            background: #eab308;
+            box-shadow: 0 0 30px rgba(234, 179, 8, 0.5);
+        }
+
+        .status-gray {
+            background: #9ca3af;
+            animation: none;
+        }
+
+        .status-text {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .control-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-green {
+            background: #22c55e;
+            color: white;
+        }
+
+        .btn-green:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+
+        .btn-red {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-red:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .stop-container {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .stop-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .stop-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .stop-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .current-stop {
+            background: #3b82f6;
+        }
+
+        .next-stop {
+            background: #10b981;
+        }
+
+        .stop-info {
+            flex: 1;
+        }
+
+        .stop-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 3px;
+        }
+
+        .stop-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .coordinates {
+            font-family: 'Courier New', monospace;
+            background: #f3f4f6;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            #map {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>
+                <div class="bus-icon">🚌</div>
+                Bus Tracking System
+            </h1>
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="busIdInput" 
+                    class="search-input" 
+                    placeholder="Enter Bus ID (e.g., 673dcaff73f1bb001c4e6fac)"
+                    onkeypress="handleKeyPress(event)"
+                >
+                <button class="track-btn" onclick="trackBus()">Track Bus</button>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Map -->
+            <div class="map-container">
+                <div class="map-header">📍 Live Location</div>
+                <div id="map"></div>
+            </div>
+
+            <!-- Info Panel -->
+            <div class="info-panel">
+                <!-- LED Status Card -->
+                <div class="info-card">
+                    <h3>🚦 Bus Status & Control</h3>
+                    <div id="statusContent">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v6l4 2"/>
+                            </svg>
+                            <p>Enter a Bus ID to start tracking</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bus Info Card -->
+                <div class="info-card">
+                    <h3>🚌 Bus Information</h3>
+                    <div id="busInfoContent">
+                        <div class="empty-state">
+                            <p>No bus data available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Route Info Card -->
+                <div class="info-card">
+                    <h3>🗺️ Route Information</h3>
+                    <div id="routeInfoContent">
+                        <div class="empty-state">
+                            <p>No route data available</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+        const SOCKET_URL = 'http://127.0.0.1:8000';
+
+        let map;
+        let marker;
+        let socket;
+        let activeBusId = null;
+
+        // ============================================
+        // MAP INITIALIZATION
+        // ============================================
+        function initMap() {
+            map = L.map('map').setView([12.9716, 77.5946], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            const busIcon = L.divIcon({
+                className: 'custom-bus-marker',
+                html: '<div style="background:#3B82F6;width:30px;height:30px;border-radius:50%;border:3px solid white;box-shadow:0 2px 10px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:16px;">🚌</div>',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15]
+            });
+
+            marker = L.marker([12.9716, 77.5946], { icon: busIcon }).addTo(map);
+            marker.setOpacity(0);
+        }
+
+        function updateMapLocation(lat, lng) {
+            const position = [parseFloat(lat), parseFloat(lng)];
+            marker.setLatLng(position);
+            marker.setOpacity(1);
+            map.setView(position, 15);
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                trackBus();
+            }
+        }
+
+        async function trackBus() {
+            const busIdInput = document.getElementById('busIdInput');
+            const busId = busIdInput.value.trim();
+            
+            if (!busId) {
+                showError('Please enter a Bus ID');
+                return;
+            }
+
+            activeBusId = busId;
+            hideError();
+            hideSuccess();
+            
+            if (socket) {
+                socket.disconnect();
+            }
+
+            try {
+                await fetchBusData(busId);
+                setupSocketConnection(busId);
+                showSuccess('Bus tracking started successfully!');
+
+            } catch (error) {
+                showError('Failed to fetch bus data: ' + error.message);
+                console.error('Track bus error:', error);
+            }
+        }
+
+        // ============================================
+        // API CALLS
+        // ============================================
+        async function fetchBusData(busId) {
+            try {
+                console.log('🔍 Fetching data for busId:', busId);
+
+                // Fetch status - POST to /get-status/:id
+                const statusRes = await fetch(`${API_BASE_URL}/busManual/get-status/${busId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                if (!statusRes.ok) throw new Error(`Status API failed: ${statusRes.status}`);
+                const statusData = await statusRes.json();
+                console.log('✅ Status data:', statusData);
+                console.log('✅ Status data (raw):', statusData);
+
+
+                // Fetch location - GET /bus-tracking/:busId
+                const locationRes = await fetch(`${API_BASE_URL}/busLocation/bus-tracking/${busId}`);
+                if (!locationRes.ok) throw new Error(`Location API failed: ${locationRes.status}`);
+                const locationData = await locationRes.json();
+                console.log('✅ Location data:', locationData);
+
+                // Fetch route - GET /getProgress/:busId
+                const routeRes = await fetch(`${API_BASE_URL}/busProgress/getProgress/${busId}`);
+                if (!routeRes.ok) throw new Error(`Route API failed: ${routeRes.status}`);
+                const routeData = await routeRes.json();
+                console.log('✅ Route data:', routeData);
+
+                // Update UI
+                updateStatusCard(statusData.data);
+                updateBusInfoCard(busId, statusData.data, locationData);
+                updateRouteCard(routeData.data);
+                
+                // Update map if we have valid coordinates
+                if (locationData.latitude && locationData.longitude) {
+                    updateMapLocation(locationData.latitude, locationData.longitude);
+                } else {
+                    console.warn('⚠️ No valid location data');
+                }
+
+            } catch (error) {
+                console.error('❌ Fetch error:', error);
+                throw error;
+            }
+        }
+
+        async function setGreenSignal() {
+            if (!activeBusId) {
+                showError('Please track a bus first');
+                return;
+            }
+
+            try {
+                console.log('🟢 Setting GREEN signal for bus:', activeBusId);
+                
+                const response = await fetch(`${API_BASE_URL}/busManual/manual-green/${activeBusId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: 'green' })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to set green signal');
+                }
+                
+                const data = await response.json();
+                showSuccess('✅ Signal changed to GREEN!');
+                console.log('✅ Green signal response:', data);
+                
+                // Refresh bus data
+                setTimeout(() => fetchBusData(activeBusId), 500);
+            } catch (error) {
+                showError('❌ Failed to set green signal: ' + error.message);
+                console.error('❌ Green signal error:', error);
+            }
+        }
+
+        async function setRedSignal() {
+            if (!activeBusId) {
+                showError('Please track a bus first');
+                return;
+            }
+
+            try {
+                console.log('🔴 Setting RED signal for bus:', activeBusId);
+                
+                const response = await fetch(`${API_BASE_URL}/busManual/manual-red/${activeBusId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: 'red' })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to set red signal');
+                }
+                
+                const data = await response.json();
+                showSuccess('✅ Signal changed to RED!');
+                console.log('✅ Red signal response:', data);
+                
+                // Refresh bus data
+                setTimeout(() => fetchBusData(activeBusId), 500);
+            } catch (error) {
+                showError('❌ Failed to set red signal: ' + error.message);
+                console.error('❌ Red signal error:', error);
+            }
+        }
+
+        // ============================================
+        // SOCKET.IO CONNECTION
+        // ============================================
+        function setupSocketConnection(busId) {
+            socket = io(SOCKET_URL);
+
+            socket.on('connect', () => {
+                console.log('✅ Socket connected:', socket.id);
+                socket.emit('joinBusRoom', busId);
+            });
+
+            socket.on('busLocationLiveUpdate', (data) => {
+                console.log('📍 Location update:', data);
+                if (data.busId === busId) {
+                    updateMapLocation(data.latitude, data.longitude);
+                    updateCoordinates(data.latitude, data.longitude);
+                }
+            });
+
+            socket.on('busSignalChange', (data) => {
+    console.log('🚦 Signal change received from backend:', data);
+    if (data.busId === busId) {
+        updateStatusIndicator(data.currentStatus || data.ledStatus || data.signal || data.status, data.lastSignalChangeTime);
+    }
+});
+
+
+            socket.on('busRouteUpdate', (data) => {
+                console.log('🗺️ Route update:', data);
+                updateRouteCard(data);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Socket disconnected');
+            });
+
+            socket.on('error', (error) => {
+                console.error('❌ Socket error:', error);
+            });
+        }
+
+        // ============================================
+        // UI UPDATE FUNCTIONS
+        // ============================================
+        function updateStatusCard(data) {
+    const statusContent = document.getElementById('statusContent');
+
+    // ✅ Detect status from any possible key
+    const currentStatus = data?.currentStatus || data?.ledStatus || data?.signal || 'unknown';
+    const normalizedStatus = currentStatus.toLowerCase();
+
+    const statusClass = `status-${normalizedStatus}`;
+    const statusEmoji = normalizedStatus === 'green' ? '🟢' : 
+                       normalizedStatus === 'red' ? '🔴' : 
+                       normalizedStatus === 'waiting' ? '🟡' : '⚪';
+    const statusText = normalizedStatus === 'green' ? 'Moving' : 
+                      normalizedStatus === 'red' ? 'Stopped' : 
+                      normalizedStatus === 'waiting' ? 'Waiting' : 'Unknown';
+
+    const lastUpdate = data?.lastSignalChangeTime 
+        ? new Date(data.lastSignalChangeTime).toLocaleTimeString() 
+        : 'N/A';
+
+    statusContent.innerHTML = `
+        <div class="status-indicator ${statusClass}">
+            ${statusEmoji}
+        </div>
+        <div class="status-text">${statusText}</div>
+        <div class="info-row">
+            <span class="info-label">Last Update:</span>
+            <span class="info-value">${lastUpdate}</span>
+        </div>
+        ${data?.reasonForRedSignal ? `
+        <div class="info-row">
+            <span class="info-label">Reason:</span>
+            <span class="info-value">${data.reasonForRedSignal}</span>
+        </div>` : ''}
+        <div class="control-buttons">
+            <button class="control-btn btn-green" onclick="setGreenSignal()">🟢 Set GREEN</button>
+            <button class="control-btn btn-red" onclick="setRedSignal()">🔴 Set RED</button>
+        </div>
+    `;
+}
+
+
+        function updateStatusIndicator(status, lastUpdate) {
+            const statusContent = document.getElementById('statusContent');
+            const statusClass = `status-${status}`;
+            const statusEmoji = status === 'green' ? '🟢' : 
+                               status === 'red' ? '🔴' : 
+                               status === 'waiting' ? '🟡' : '⚪';
+            const statusText = status === 'green' ? 'Moving' : 
+                              status === 'red' ? 'Stopped' : 
+                              status === 'waiting' ? 'Waiting' : 'Unknown';
+
+            statusContent.innerHTML = `
+                <div class="status-indicator ${statusClass}">
+                    ${statusEmoji}
+                </div>
+                <div class="status-text">${statusText}</div>
+                <div class="info-row">
+                    <span class="info-label">Last Update:</span>
+                    <span class="info-value">${new Date(lastUpdate).toLocaleTimeString()}</span>
+                </div>
+                <div class="control-buttons">
+                    <button class="control-btn btn-green" onclick="setGreenSignal()">
+                        🟢 Set GREEN
+                    </button>
+                    <button class="control-btn btn-red" onclick="setRedSignal()">
+                        🔴 Set RED
+                    </button>
+                </div>
+            `;
+        }
+
+        function updateBusInfoCard(busId, statusData, locationData) {
+    const busInfoContent = document.getElementById('busInfoContent');
+
+    // ✅ Normalize the status field
+    const currentStatus = statusData?.currentStatus || statusData?.ledStatus || statusData?.signal || 'unknown';
+    const displayStatus = currentStatus ? currentStatus.toUpperCase() : 'UNKNOWN';
+    
+    const latitude = locationData?.latitude ? parseFloat(locationData.latitude).toFixed(6) : 'N/A';
+    const longitude = locationData?.longitude ? parseFloat(locationData.longitude).toFixed(6) : 'N/A';
+
+    busInfoContent.innerHTML = `
+        <div class="info-row">
+            <span class="info-label">Bus ID:</span>
+            <span class="info-value">${busId}</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">Status:</span>
+            <span class="info-value">${displayStatus}</span>
+        </div>
+        <div style="margin-top: 15px;">
+            <div class="info-label" style="margin-bottom: 8px;">Coordinates:</div>
+            <div class="coordinates">
+                Lat: ${latitude}<br>
+                Lng: ${longitude}
+            </div>
+        </div>
+    `;
+}
+
+
+
+        function updateCoordinates(lat, lng) {
+            const coordinates = document.querySelector('.coordinates');
+            if (coordinates) {
+                coordinates.innerHTML = `
+                    Lat: ${parseFloat(lat).toFixed(6)}<br>
+                    Lng: ${parseFloat(lng).toFixed(6)}
+                `;
+            }
+        }
+
+        function updateRouteCard(data) {
+            const routeInfoContent = document.getElementById('routeInfoContent');
+            routeInfoContent.innerHTML = `
+                <div class="info-row">
+                    <span class="info-label">Route:</span>
+                    <span class="info-value">${data.routeName || 'N/A'}</span>
+                </div>
+                <div class="stop-container">
+                    <div class="stop-item">
+                        <div class="stop-icon current-stop">📍</div>
+                        <div class="stop-info">
+                            <div class="stop-label">Current Stop</div>
+                            <div class="stop-name">${data.currStop || 'Unknown'}</div>
+                        </div>
+                    </div>
+                    <div class="stop-item">
+                        <div class="stop-icon next-stop">➡️</div>
+                        <div class="stop-info">
+                            <div class="stop-label">Next Stop</div>
+                            <div class="stop-name">${data.nextStop || 'Unknown'}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Distance to Next:</span>
+                    <span class="info-value">${data.distanceToNextStop || 0}m</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Stops:</span>
+                    <span class="info-value">${data.totalStops || 0}</span>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // NOTIFICATION FUNCTIONS
+        // ============================================
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = '⚠️ ' + message;
+            errorDiv.classList.add('show');
+            setTimeout(() => hideError(), 5000);
+        }
+
+        function hideError() {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.classList.remove('show');
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = '✅ ' + message;
+            successDiv.classList.add('show');
+            setTimeout(() => hideSuccess(), 3000);
+        }
+
+        function hideSuccess() {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.classList.remove('show');
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        window.onload = () => {
+            console.log('🚀 Bus Tracking System initialized');
+            console.log('📡 API URL:', API_BASE_URL);
+            console.log('🔌 Socket URL:', SOCKET_URL);
+            initMap();
+        };
+    </script>
+</body>
+</html>
