@@ -1,6 +1,6 @@
-import asyncHandler from "../utills/asyncHandler.js";
+import { asyncHandler } from "../utills/asyncHandler.js";
 import { ApiError } from "../utills/apiError.js";
-import { ApiResponse } from "../utills/apiError.js";
+import { ApiResponse } from "../utills/apiResponse.js";
 import { Bus } from "../Models/bus.models.js";
 
 const getAllBus = asyncHandler(async (req, res) => {

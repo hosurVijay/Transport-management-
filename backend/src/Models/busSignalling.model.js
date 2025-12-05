@@ -69,7 +69,12 @@ const busSignalling = new Schema(
     },
     reasonForRedSignal: {
       type: String,
-      enum: ["busBunching", "controlRoomStop", "manualOverride"],
+      enum: [
+        "busBunching",
+        "controlRoomStop",
+        "manualOverride",
+        "terminatedOverride",
+      ],
       default: null,
     },
     isActive: {

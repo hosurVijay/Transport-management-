@@ -25,3 +25,9 @@ app.use("/api/v1/busProgress", getBusProgress);
 
 import getBusLocation from "./Routes.web/trackingBus.route.js";
 app.use("/api/v1/busLocation", getBusLocation);
+
+import getAllBusRoute from "./Routes.web/webDashBoard.route.js";
+app.use("/api/v1/dashBoard", getAllBusRoute);
+
+import allBusTrackingRoute from "./Routes.web/allBusTracking.route.js";
+app.use("/api/v1/allBusTracking", allBusTrackingRoute);

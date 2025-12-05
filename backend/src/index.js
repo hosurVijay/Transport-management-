@@ -20,7 +20,11 @@ connectDB()
     // Socket.IO setup (for web clients - keep this!)
     const io = new Server(httpServer, {
       cors: {
-        origin: "*",
+        origin: [
+          "http://127.0.0.1:5500",
+          "http://localhost:8080",
+          "http://127.0.0.1:8080/socket.io/?EIO=4&transport=polling&t=PfzTdMO",
+        ],
         methods: ["POST", "GET"],
       },
     });
